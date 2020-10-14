@@ -1,0 +1,10 @@
+{
+  "name": "proxyodoo",
+  "version": "0.0.1",
+  "dependencies": {
+    "assert": "^2.0.0",
+    "axios": "^0.20.0",
+    "express": "^4.17.1",
+    "jayson": "^3.3.4"
+  }
+}
