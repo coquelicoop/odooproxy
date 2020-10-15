@@ -2,8 +2,6 @@ const fs = require("fs");
 const http = require("http");
 const https = require("https");
 const express = require('express');
-const { setServers } = require("dns");
-const { nextTick } = require("process");
 const modules = {}
 modules.m1 = require("./m1.js")
 

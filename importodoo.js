@@ -82,3 +82,26 @@ function getArticles (config, timeout) {
 }
 
 exports.getArticles = getArticles
+
+function connect (config, email, motdepasse) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: email,
+        password: motdepasse,
+        timeout: 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject(err)
+            } else {
+                resolve( { ok: true } )
+            }
+        })
+    })
+}
+
+exports.connect = connect

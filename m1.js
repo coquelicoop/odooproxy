@@ -1,6 +1,7 @@
 const axios = require("axios")
 const crypto = require('crypto')
 const getArticles = require("./importodoo.js").getArticles
+const connect = require("./importodoo.js").connect
 
 /* Liste des articles à peser : dernière recherche par environnement
     dh:'', // date-heure en ISO string du dernier état
@@ -64,8 +65,8 @@ async function articlesAPeser(args, env) {
             c.liste = await getArticles(env, 10000)
             c.sha = crypto.createHash('sha256').update(JSON.stringify(c.liste)).digest('base64')
         } catch (e) {
-            console.log('Request error', e.message)
-            return { c:22, m:e.message }
+            // console.log('Request error', e.message)
+            return { error: {c: 22, m: e.message } }
         }
     }
     const res = { dh: c.dh, sha: c.sha }
@@ -73,3 +74,14 @@ async function articlesAPeser(args, env) {
     return res
 }
 exports.articlesAPeser = articlesAPeser 
+
+/******************************************************/
+async function connection (args, env) {
+    try {
+        return await connect(env, args.email, args.motdepasse)
+    } catch (e) {
+        return { error: {c: 23, m: 'Utilisateur non enregistré dans Odoo' } }
+    }
+}
+
+exports.connection = connection
