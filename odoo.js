@@ -1,4 +1,5 @@
 'use strict';
+// ajouté par Coquelicoop : timeout, https (dont Cookie sid adapté)
 
 var assert = require('assert');
 var jayson = require('jayson');

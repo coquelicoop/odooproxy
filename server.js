@@ -6,6 +6,7 @@ const modules = {}
 modules.m1 = require("./m1.js")
 
 function checkOrigin(req) {
+    if (!cfg.origins) return true
     let origin = req.headers["origin"]
     if (!origin || origin == "null") {
         const referer = req.headers["referer"];
@@ -23,42 +24,52 @@ function checkOrigin(req) {
     return origin && cfg.origins.indexOf(origin) !== -1
 }
 
-const headers = {
-    "Access-Control-Allow-Origin" : "*",
-    "Access-Control-Allow-Methods" : "GET,POST,PUT,DELETE,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With"
+function setRes(res, status) {
+    return res.status(status).set({
+        "Access-Control-Allow-Origin" : "*",
+        "Access-Control-Allow-Methods" : "GET,POST,PUT,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With"
+    })
 }
 
-function setRes(res, status) {
-    return res.status(status).set(headers)
+function er(c, m) {
+    const l = [
+        "Erreur non récupérée : ", // 0
+        "Origine non autorisée", // 1
+        "Environnement inconnu", // 2
+        "Module inconnu", // 3
+        "Fonction inconnue" // 4
+    ]
+    return {c: c, m: l[c] + m || ''}
 }
 
 async function operation(req, res, isGet) {
     try {
-        if (!checkOrigin(req)) {
-            setRes(res, 400).json({c:10, m:"Origine non autorisée"})
+        const isGet = req.method === "GET"
+
+        if (!isGet && !checkOrigin(req)) {
+            setRes(res, 400).json(er(1))
             return
         }
         
         const env = cfg[req.params.env]
         if (!env) {
-            setRes(res, 400).json({c:11, m:"Environnement inconnu"})
+            setRes(res, 400).json(er(2))
             return
         } else env.code = req.params.env
 
         const mod = modules[req.params.mod]
         if (!mod) {
-            setRes(res, 400).json({c:12, m:"Module inconnu"})
+            setRes(res, 400).json(er(2))
             return
         }
 
         const func = mod[req.params.func]
         if (!func) {
-            setRes(res, 400).json({c:13, m:"Fonction inconnue"})
+            setRes(res, 400).json(er(3))
             return
         }
 
-        const isGet = req.method === "GET"
         /*
             Retourne un objet result :
             Pour un GET :
@@ -68,8 +79,19 @@ async function operation(req, res, isGet) {
                 result : objet résultat
             En cas d'erreur :
                 result.error : objet erreur {c:99 , m:"...", s:" trace "}
+            Sur un POST, username password tirés de l'objet body sont passés en argument
         */
-        const result = await func(isGet ? req.query : req.body, env)
+        let args, username, password
+        if (isGet) {
+            args = req.query
+        } else {
+            args = req.body
+            username = req.body['$username']
+            password = req.body['$password']
+            if (username) delete req.body['$username']
+            if (password) delete req.body['$password']
+        }
+        const result = await func(args, env, username, password)
         if (result.error) {
             setRes(res, 400).json(result.error)
         } else {
@@ -79,8 +101,14 @@ async function operation(req, res, isGet) {
                 setRes(res, 200).json(result)
         }            
 	} catch(e) {
-        const x = {c:1, m:"Erreur non récupérée : " + e.message}
-        if (e.stack) x.s = e.stack
+        let x
+        if (e.apperror) {
+            x = e
+        } else {
+            x = { apperror : { c: 0, m:'BUG : erreur inattendu' }}
+            if (e.message) x.apperror.d = e.message
+            if (e.stack) x.apperror.s = e.stack
+        }
 		setRes(res, 400).json(x)
 	}
 }
@@ -93,8 +121,6 @@ try {
     throw new Error(" Erreur de parsing de config.json : " + e.message)
 }
 
-const key = fs.readFileSync("cert/privkey.pem")
-const cert = fs.readFileSync("cert/fullchain.pem")
 const favicon = fs.readFileSync("./favicon.ico")
 
 const app = express()
@@ -102,7 +128,7 @@ app.use(express.json()) // for parsing application/json
 
 app.use("/", (req, res, next) => {
     if (req.method === 'OPTIONS')
-        setRes(res, 200).set(headers).type("text/plain").send("");
+        setRes(res, 200).type("text/plain").send("");
     else
         next()
 })
@@ -122,16 +148,22 @@ app.use("/:env/:mod/:func", async (req, res) => { await operation(req, res) })
 
 /****** starts listen ***************************/
 try {
+    let server
     const opt = {host:cfg.proxyhost, port:cfg.proxyport}
     if (!cfg.proxyhttps)
-        http.createServer(app).listen(opt, () => {
+        server = http.createServer(app).listen(opt, () => {
             console.log("HTTP server running at " + opt.host + ":" + opt.port)
-        });
+        })
     else {
-        https.createServer({key:key, cert:cert}, app).listen(opt, () => {
+        const key = fs.readFileSync("cert/privkey.pem")
+        const cert = fs.readFileSync("cert/fullchain.pem")
+        server = https.createServer({key:key, cert:cert}, app).listen(opt, () => {
             console.log("HTTP/S server running at " + opt.host + ":" + opt.port)
         });		
     }
+    server.on('error', (e) => {
+        console.error(e.message)
+    })
 } catch(e) {
     console.error(e.message)
 }

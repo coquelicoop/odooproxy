@@ -1,24 +1,13 @@
 const axios = require("axios")
 const crypto = require('crypto')
-const getArticles = require("./importodoo.js").getArticles
-const connect = require("./importodoo.js").connect
+const Odoo = require('./odoo')
 
-/* Liste des articles à peser : dernière recherche par environnement
-    dh:'', // date-heure en ISO string du dernier état
-    liste:[], // Liste des articles
-    sha:'' // digest de la serialisation en json
-*/
-const articles = { }
-
-
-/*
+/***************************************************************
     args : objet des arguments
     env :  {
         "host": "coquelicoop.foodcoop12.trobz.com",
         "port": 443,
         "https": true,
-        "username": "dev@coquelicoop.fr",
-        "password": "xxx",
         "database": "coquelicoop_production"  
     },
     Retourne un objet result :
@@ -29,21 +18,52 @@ const articles = { }
         result : objet résultat
     En cas d'erreur :
         result.error : objet erreur {c:99 , m:"...", s:" trace "}
-*/
+*****************************************************************/
 
 async function codebarre(args, env) {
     const u1 = '/report/barcode?type=EAN13&width=200&height=40&value='
-    try {
-        const u = (env.https ? 'https://' : 'http://') + env.host + ':' + env.port + u1 + args.cb
-        const r = await axios.get(u, { responseType: 'arraybuffer', timeout: args.timeout ? args.timeout : 10000 })
-        return { bytes: r.data, type:'jpg' }
-    } catch (e) {
-        console.log('Request error', e.message)
-        return { c:21, m:e.message }
-    }
+    const u = (env.https ? 'https://' : 'http://') + env.host + ':' + env.port + u1 + args.cb
+    const r = await axios.get(u, { responseType: 'arraybuffer', timeout: args.timeout ? args.timeout : 10000 })
+    return { bytes: r.data, type:'jpg' }
 }
 exports.codebarre = codebarre
+
 /******************************************************/
+/* Liste des articles à peser : dernière recherche par environnement
+    dh:'', // date-heure en ISO string du dernier état
+    liste:[], // Liste des articles
+    sha:'' // digest de la serialisation en json
+*/
+const articles = { }
+
+/* Curieux nom : c'est la condition de filtre des produits pour l'API */
+const domain = [["barcode", ">", "2000000000000"], ["barcode", "<", "2999000000000"], ["sale_ok", "=", true], ["available_in_pos", "=", true], ["to_weight", "=", true]]
+
+const map = {"id":"id", "name":"nom", "barcode":"code-barre", "list_price":"prix", "categ_id":"categorie", "uom_id":"unite", "image": "image"}
+
+/* Liste des propriétés de product.product à récupérer */
+const fields = []
+for (let f in map) { fields.push(f) }
+
+const params = { // paramètres requis pour le search_read de articles à peser
+    ids: [],
+    domain: domain,
+    fields: fields, // omettre cette ligne pour avoir TOUS les champs
+    order: '',
+    limit: 9999,
+    offset: 0
+}
+
+function codeDeId(x) {
+    let i = x.indexOf(',')
+    return i === -1 ? x : x.substring(i + 1)
+}
+
+function categ(c) {
+    const i = c.lastIndexOf('/')
+    return i == -1 ? '?' : c.substring(i + 1)
+}
+
 /*
     Args :
     dh : date-heure en ISO string du chargement de la liste depuis Odoo détenu par l'appelant
@@ -52,7 +72,7 @@ exports.codebarre = codebarre
     Return : { dh, liste, sha }
     Si le sha en argument est égal au sha de la liste courante, liste est absente
 */
-async function articlesAPeser(args, env) {
+async function articlesAPeser(args, env, username, password) {
     let c = articles[env.code]
     if (!c) {
         args.recharg = true // si on n'a pas de liste courante en cache, on force son rechargement
@@ -60,14 +80,19 @@ async function articlesAPeser(args, env) {
         c = articles[env.code]
     }
     if (args.recharg) {
-        try {
-            c.dh = new Date().toISOString()
-            c.liste = await getArticles(env, 10000)
-            c.sha = crypto.createHash('sha256').update(JSON.stringify(c.liste)).digest('base64')
-        } catch (e) {
-            // console.log('Request error', e.message)
-            return { error: {c: 22, m: e.message } }
+        c.liste = []
+        c.dh = new Date().toISOString()
+        const products = await search_read(env, username, password, 10000, 'product.product', params)
+        for (let i = 0, r = null; (r = products[i]); i++) {
+            const a = {}
+            // mapping entre les champs reçus et les noms des colonnes (propriété de l'article)
+            for (let f in map) { if (r[f]) a[map[f]] = '' + r[f] }
+            // champ uom_id (unite) : le code figure après la virgule
+            a.unite = codeDeId(a.unite)
+            a.categorie = categ(a.categorie)
+            c.liste.push(a)
         }
+        c.sha = crypto.createHash('sha256').update(JSON.stringify(c.liste)).digest('base64')
     }
     const res = { dh: c.dh, sha: c.sha }
     if (c.sha !== args.sha) res.liste = c.liste
@@ -75,13 +100,215 @@ async function articlesAPeser(args, env) {
 }
 exports.articlesAPeser = articlesAPeser 
 
+function errconn(e) {
+    const x = {apperror : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }}
+    if (e.stack) x.apperror.s = e.stack
+    if (e.message) x.apperror.d = e.message
+    return x
+}
+
+function errfn(e, fn) {
+   const x = {apperror : {c: 11, m: 'Erreur de ' + fn }}
+   if (e.stack) x.apperror.s = e.stack
+   if (e.message) x.apperror.d = e.message
+   return x
+}
 /******************************************************/
-async function connection (args, env) {
-    try {
-        return await connect(env, args.email, args.motdepasse)
-    } catch (e) {
-        return { error: {c: 23, m: 'Utilisateur non enregistré dans Odoo' } }
-    }
+async function connection (args, env, username, password) {
+    const odoo = new Odoo({
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
+        username: username,
+        password: password,
+        timeout: 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject(errconn(err))
+            } else {
+                resolve( { ok: true } )
+            }
+        })
+    })
 }
 
 exports.connection = connection
+
+/******************************************************/
+function search_read (config, username, password, timeout, model, params) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject(errconn(err))
+            } else {
+                odoo.search_read(model, params, (err, res) => {
+                    if (err) {
+                        reject(errfn(err, 'searh_read'))
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.search_read = search_read
+
+/******************************************************/
+function get (config, username, password, timeout, model, params) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+            } else {
+                odoo.get(model, params, (err, res) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.get = get
+
+/******************************************************/
+function browse_by_id (config, username, password, timeout, model, params) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+            } else {
+                odoo.browse_by_id(model, params, (err, res) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.browse_by_id = browse_by_id
+
+/******************************************************/
+function create (config, username, password, timeout, model, params) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+            } else {
+                odoo.create(model, params, (err, res) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.create = create
+
+/******************************************************/
+function update (config, username, password, timeout, model, id, params) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+            } else {
+                odoo.update(model, id, params, (err, res) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.update = update
+
+/******************************************************/
+function delete_object (config, username, password, timeout, model, id) {
+    const odoo = new Odoo({
+        https: config.https || false,
+        host: config.host,
+        port: config.port,
+        database: config.database,
+        username: username,
+        password: password,
+        timeout: timeout || 5000
+    })
+    return new Promise((resolve, reject) => {
+        odoo.connect(err => {
+            if (err) {
+                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+            } else {
+                odoo.delete(model, id, (err, res) => {
+                    if (err) {
+                        reject(err)
+                    } else {
+                        resolve(res)
+                    }
+                })
+            }
+        })
+    })
+}
+exports.delete_object = delete_object
+
+/******************************************************/
