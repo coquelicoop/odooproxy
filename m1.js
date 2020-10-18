@@ -2,6 +2,17 @@ const axios = require("axios")
 const crypto = require('crypto')
 const Odoo = require('./odoo')
 
+function atStart(cfg) {
+    const p = cfg.periodeapeserenminutes
+    if (p) periodiqueAPeser(cfg, p) 
+}
+exports.atStart = atStart
+
+async function periodiqueAPeser(cfg, p) {
+    await articlesAPeser({ rechargt: true }, cfg.p, cfg.username, cfg.password)
+    setTimeout(() => { periodiqueAPeser(cfg, p) }, p * 60000)
+}
+
 /***************************************************************
     args : objet des arguments
     env :  {
@@ -167,7 +178,7 @@ function search_read (config, username, password, timeout, model, params) {
 exports.search_read = search_read
 
 /******************************************************/
-function get (config, username, password, timeout, model, params) {
+function get_by_ids (config, username, password, timeout, model, params) {
     const odoo = new Odoo({
         https: config.https || false,
         host: config.host,
@@ -180,11 +191,11 @@ function get (config, username, password, timeout, model, params) {
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
-                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+                reject(errconn(err))
             } else {
                 odoo.get(model, params, (err, res) => {
                     if (err) {
-                        reject(err)
+                        reject(errfn(err, 'get_by_ids'))
                     } else {
                         resolve(res)
                     }
@@ -193,7 +204,7 @@ function get (config, username, password, timeout, model, params) {
         })
     })
 }
-exports.get = get
+exports.get_by_ids = get_by_ids
 
 /******************************************************/
 function browse_by_id (config, username, password, timeout, model, params) {
@@ -209,11 +220,11 @@ function browse_by_id (config, username, password, timeout, model, params) {
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
-                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+                reject(errconn(err))
             } else {
                 odoo.browse_by_id(model, params, (err, res) => {
                     if (err) {
-                        reject(err)
+                        reject(errfn(err, 'browse_by_id'))
                     } else {
                         resolve(res)
                     }
@@ -225,7 +236,7 @@ function browse_by_id (config, username, password, timeout, model, params) {
 exports.browse_by_id = browse_by_id
 
 /******************************************************/
-function create (config, username, password, timeout, model, params) {
+function create_object (config, username, password, timeout, model, params) {
     const odoo = new Odoo({
         https: config.https || false,
         host: config.host,
@@ -238,11 +249,11 @@ function create (config, username, password, timeout, model, params) {
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
-                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+                reject(errconn(err))
             } else {
                 odoo.create(model, params, (err, res) => {
                     if (err) {
-                        reject(err)
+                        reject(errfn(err, 'create_object'))
                     } else {
                         resolve(res)
                     }
@@ -251,10 +262,10 @@ function create (config, username, password, timeout, model, params) {
         })
     })
 }
-exports.create = create
+exports.create_object = create_object
 
 /******************************************************/
-function update (config, username, password, timeout, model, id, params) {
+function update_object (config, username, password, timeout, model, id, params) {
     const odoo = new Odoo({
         https: config.https || false,
         host: config.host,
@@ -267,11 +278,11 @@ function update (config, username, password, timeout, model, id, params) {
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
-                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+                reject(errconn(err))
             } else {
                 odoo.update(model, id, params, (err, res) => {
                     if (err) {
-                        reject(err)
+                        reject(errfn(err, 'update_object'))
                     } else {
                         resolve(res)
                     }
@@ -280,7 +291,7 @@ function update (config, username, password, timeout, model, id, params) {
         })
     })
 }
-exports.update = update
+exports.update_object = update_object
 
 /******************************************************/
 function delete_object (config, username, password, timeout, model, id) {
@@ -296,11 +307,11 @@ function delete_object (config, username, password, timeout, model, id) {
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
-                reject({error : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }})
+                reject(errconn(err))
             } else {
                 odoo.delete(model, id, (err, res) => {
                     if (err) {
-                        reject(err)
+                        reject(errfn(err, 'delete_object'))
                     } else {
                         resolve(res)
                     }

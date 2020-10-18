@@ -1,5 +1,11 @@
 'use strict';
-// ajouté par Coquelicoop : timeout, https (dont Cookie sid adapté)
+/* 
+  Copier / coller de https://www.npmjs.com/package/odoo
+  Ajouté par Coquelicoop : 
+    - gestion d'un timeout. Une requête en échec pouvait prendre plusieurs minutes avant de retourner une erreur
+    - gestion de https. Outre le protocol lui-même, le Cookie sid ayant un format différent a été adapté.
+  Suivre les rares lignes marquées "Coquelicoop" en commentaires pour y retrouver les rares modifications.
+*/
 
 var assert = require('assert');
 var jayson = require('jayson');

@@ -3,7 +3,7 @@
     "host": "coquelicoop.foodcoop12.trobz.com",
     "port": 443,
     "https": true,
-    "database": "coquelicoop_production"  
+    "database": "coquelicoop_production"
   },
   "s": {
     "host": "coquelicoop.staging.foodcoop12.trobz.com",
@@ -14,5 +14,8 @@
   "proxyport": 8091,
   "proxyhost": "localhost",
   "proxyhttps": false,
-  "origins": false
+  "origins": [],
+  "periodeapeserenminutes": 1,
+  "username": "dev@coquelicoop.fr",
+  "password": "2020_stopogm"  
 }

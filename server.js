@@ -6,7 +6,7 @@ const modules = {}
 modules.m1 = require("./m1.js")
 
 function checkOrigin(req) {
-    if (!cfg.origins) return true
+    if (!cfg.origins || !cfg.origins.length) return true
     let origin = req.headers["origin"]
     if (!origin || origin == "null") {
         const referer = req.headers["referer"];
@@ -43,7 +43,7 @@ function er(c, m) {
     return {c: c, m: l[c] + m || ''}
 }
 
-async function operation(req, res, isGet) {
+async function operation(req, res) {
     try {
         const isGet = req.method === "GET"
 
@@ -56,7 +56,7 @@ async function operation(req, res, isGet) {
         if (!env) {
             setRes(res, 400).json(er(2))
             return
-        } else env.code = req.params.env
+        }
 
         const mod = modules[req.params.mod]
         if (!mod) {
@@ -117,6 +117,7 @@ const configjson = fs.readFileSync("./config.json")
 let cfg
 try {
     cfg = JSON.parse(configjson)
+    for (let o in cfg) { if (o.length === 1) cfg[o].code = o }
 } catch(e) {
     throw new Error(" Erreur de parsing de config.json : " + e.message)
 }
@@ -146,19 +147,33 @@ app.get("/ping", (req, res) => {
 /**** appels des opérations ****/
 app.use("/:env/:mod/:func", async (req, res) => { await operation(req, res) })
 
+function atStart() {
+    for (let m in modules) {
+        modules[m].atStart(cfg)
+    }
+}
+
 /****** starts listen ***************************/
+// Pour installation sur o2switch
+const isPassenger = typeof(PhusionPassenger) !== 'undefined'
+if (isPassenger) {
+    PhusionPassenger.configure({ autoInstall: false })
+}
+ 
 try {
     let server
-    const opt = {host:cfg.proxyhost, port:cfg.proxyport}
+    const opt = isPassenger ? 'passenger' : {host:cfg.proxyhost, port:cfg.proxyport}
     if (!cfg.proxyhttps)
         server = http.createServer(app).listen(opt, () => {
             console.log("HTTP server running at " + opt.host + ":" + opt.port)
+            atStart()
         })
     else {
         const key = fs.readFileSync("cert/privkey.pem")
         const cert = fs.readFileSync("cert/fullchain.pem")
         server = https.createServer({key:key, cert:cert}, app).listen(opt, () => {
             console.log("HTTP/S server running at " + opt.host + ":" + opt.port)
+            atStart()
         });		
     }
     server.on('error', (e) => {

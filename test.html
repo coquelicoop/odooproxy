@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html> 
+<head>
+<meta charset="utf-8">
+<title>Test odooproxy</title>
+<script>
+async function submitform() {
+    const url = document.getElementById("url").value
+    const res = document.getElementById("res")
+    const data = { $username: document.getElementById("username").value, $password: document.getElementById("password").value }
+    const opt = {
+        method: 'POST', // *GET, POST, PUT, DELETE, etc.
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data) // body data type must match "Content-Type" header
+    }
+    try {
+        const r = await fetch(url, opt)
+        console.log('OK ' + r.status)
+        res.innerHTML = JSON.stringify(await r.json())
+    } catch(e) {
+        res.innerHTML = e.toString
+    }
+}
+</script>
+</head>
+<body>
+<form method='POST' enctype='text/plain'>
+    <div>url : <input type="text" name="url" id="url" value="http://localhost:8091/p/m1/connection"></div
+    <div>username : <input type="text" name="username" id="username" value="x@example.com"></div
+    <div>password : <input type="text" name="password" id="password" value="???"></div>
+</form>
+<div><button onclick="submitform()">Post</button></div>
+Résultat : <div id="res"></div>
+</body>
+</html>
