@@ -2,6 +2,13 @@ const axios = require("axios")
 const crypto = require('crypto')
 const Odoo = require('./odoo')
 
+const dev = process.env.NODE_ENV === "development"
+
+/*
+Initialisation du module APRES que le serveur ait été créé et soit opérationnel
+Rafraîchissement périodique en cache (si demandé et seulement pour la production) de la liste des aricles à peser
+afin que les balances aient plus rapidement la réponse en cas de changement dans Odoo
+*/
 function atStart(cfg) {
     const p = cfg.periodeapeserenminutes
     if (p) periodiqueAPeser(cfg, p) 
@@ -31,6 +38,9 @@ async function periodiqueAPeser(cfg, p) {
         result.error : objet erreur {c:99 , m:"...", s:" trace "}
 *****************************************************************/
 
+/*
+URL de odoo retournant l'image d'un code barre depuis son texte
+*/
 async function codebarre(args, env) {
     const u1 = '/report/barcode?type=EAN13&width=200&height=40&value='
     const u = (env.https ? 'https://' : 'http://') + env.host + ':' + env.port + u1 + args.cb
@@ -103,10 +113,14 @@ async function articlesAPeser(args, env, username, password) {
             a.categorie = categ(a.categorie)
             c.liste.push(a)
         }
+        c.liste.sort((a, b) => { return a.nom < b.nom ? -1 : (a.nom == b.nom ? 0 : 1)})
         c.sha = crypto.createHash('sha256').update(JSON.stringify(c.liste)).digest('base64')
     }
     const res = { dh: c.dh, sha: c.sha }
-    if (c.sha !== args.sha) res.liste = c.liste
+    if (c.sha !== args.sha) {
+        if (dev) console.log('Liste des aricles à peser modifiée')
+        res.liste = c.liste
+    }
     return res
 }
 exports.articlesAPeser = articlesAPeser 
@@ -124,7 +138,11 @@ function errfn(e, fn) {
    if (e.message) x.apperror.d = e.message
    return x
 }
-/******************************************************/
+/*****************************************************
+ * RPC selon l'API de Odoo
+ * Interface avec promise pour faciliter l'écriture de fonctions spécifiques
+ * Voir odoo.js pour l'accès effectif à l'API de odoo
+*/
 async function connection (args, env, username, password) {
     const odoo = new Odoo({
         https: env.https || false,

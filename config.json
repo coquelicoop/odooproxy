@@ -15,7 +15,7 @@
   "proxyhost": "localhost",
   "proxyhttps": false,
   "origins": [],
-  "periodeapeserenminutes": 1,
+  "periodeapeserenminutes": 60,
   "username": "dev@coquelicoop.fr",
   "password": "2020_stopogm"  
 }
