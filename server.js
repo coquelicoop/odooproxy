@@ -175,8 +175,8 @@ app.use("/:env/:mod/:func", async (req, res) => { await operation(req, res) })
 // fonction appelée juste après l'écoute. Initialise les modules sur leurs fonctiopns atStart
 function atStart() {
     for (let m in modules) {
-        const m =  modules[m]
-        if (m && m.atStart) m.atStart(cfg)
+        const mod =  modules[m]
+        if (mod && mod.atStart) mod.atStart(cfg)
     }
 }
 
