@@ -11,8 +11,7 @@
     "https": true,
     "database": "coquelicoop_staging"
   },
-  "proxyport": 8091,
-  "proxyhost": "localhost",
+  "proxyport": 8095,
   "proxyhttps": false,
   "origins": [],
   "periodeapeserenminutes": 60,

@@ -192,19 +192,18 @@ console.log("server.js : isPassenger = " + isPassenger)
 
 try {
     let server
-    const opt = isPassenger ? 'passenger' : {host:cfg.proxyhost, port:cfg.proxyport}
-    console.log("server.js : option HTTP = " + JSON.stringify(opt))
+    const port = isPassenger ? 'passenger' : (cfg.proxyport || (!cfg.proxyhttps ? 80 : 443))
     // Création en http ou 'passenger'
     if (!cfg.proxyhttps)
-        server = http.createServer(app).listen(opt, () => {
+        server = http.createServer(app).listen(port, () => {
             console.log("HTTP server running ")
             atStart()
         })
     else {
         // Création en https avec un certificat et sa clé de signature
-        const key = fs.readFileSync("cert/privkey.pem")
-        const cert = fs.readFileSync("cert/fullchain.pem")
-        server = https.createServer({key:key, cert:cert}, app).listen(opt, () => {
+        const key = fs.readFileSync("privkey.pem")
+        const cert = fs.readFileSync("fullchain.pem")
+        server = https.createServer({key:key, cert:cert}, app).listen(port, () => {
             console.log("HTTP/S server running ")
             atStart()
         });		
