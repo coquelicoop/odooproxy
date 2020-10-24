@@ -39,6 +39,16 @@ async function periodiqueAPeser(cfg, p) {
 *****************************************************************/
 
 /*
+URL de odoo retournant un "get"
+*/
+async function get_url(args, env) {
+    const u = (env.https ? 'https://' : 'http://') + env.host + ':' + env.port + args.url
+    const r = await axios.get(u, { responseType: 'arraybuffer', timeout: args.timeout ? args.timeout : 10000 })
+    return { bytes: r.data, type:args.type }
+}
+exports.get_url = get_url
+
+/*
 URL de odoo retournant l'image d'un code barre depuis son texte
 */
 async function codebarre(args, env) {

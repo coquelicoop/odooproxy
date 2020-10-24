@@ -55,7 +55,7 @@ function er(c, m) {
 async function operation(req, res) {
     let pfx = new Date().toISOString() // prefix de log
     try {
-        const isGet = req.method === "GET"
+        let isGet = req.method === "GET"
         // vérification de l'origine de la requête
         if (!isGet && !checkOrigin(req)) {
             setRes(res, 400).json(er(1))
@@ -74,7 +74,9 @@ async function operation(req, res) {
             return
         }
         // récupétration de la fonction de ce module traitant l'opération
-        const func = mod[req.params.func]
+        const f = req.params.func
+        const isGetF = f && f.startsWith('get_')
+        const func = mod[f]
         if (!func) {
             setRes(res, 400).json(er(3))
             return
@@ -111,7 +113,7 @@ async function operation(req, res) {
             setRes(res, 400).json(result.error)
         } else { // la réponse contient le résultat attendu
             if (dev) console.log(pfx + ' 200')
-            if (isGet)
+            if (isGet || isGetF)
                 setRes(res, 200).type(result.type).send(result.bytes)
             else
                 setRes(res, 200).json(result)
@@ -126,7 +128,7 @@ async function operation(req, res) {
             if (e.message) x.apperror.d = e.message
             if (e.stack) x.apperror.s = e.stack
         }
-        if (!dev) console.log(fx)
+        if (!dev) console.log(pfx)
         console.log(pfx + ' 400=' + JSON.stringify(x))
 		setRes(res, 400).json(x)
 	}
