@@ -76,15 +76,6 @@ const map = {"id":"id", "name":"nom", "barcode":"code-barre", "list_price":"prix
 const fields = []
 for (let f in map) { fields.push(f) }
 
-const params = { // paramètres requis pour le search_read de articles à peser
-    ids: [],
-    domain: domain,
-    fields: fields, // omettre cette ligne pour avoir TOUS les champs
-    order: '',
-    limit: 9999,
-    offset: 0
-}
-
 function codeDeId(x) {
     let i = x.indexOf(',')
     return i === -1 ? x : x.substring(i + 1)
@@ -104,6 +95,14 @@ function categ(c) {
     Si le sha en argument est égal au sha de la liste courante, liste est absente
 */
 async function articlesAPeser(args, env, username, password) {
+    const params = { // paramètres requis pour le search_read de articles à peser
+        ids: [],
+        domain: domain,
+        fields: fields, // omettre cette ligne pour avoir TOUS les champs
+        order: '',
+        limit: 9999,
+        offset: 0
+    }    
     let c = articles[env.code]
     if (!c) {
         args.recharg = true // si on n'a pas de liste courante en cache, on force son rechargement
@@ -113,7 +112,8 @@ async function articlesAPeser(args, env, username, password) {
     if (args.recharg) {
         c.liste = []
         c.dh = new Date().toISOString()
-        const products = await search_read(env, username, password, 10000, 'product.product', params)
+        const args = { timeout: 10000, model: 'product.product', params: params}
+        const products = await search_read(args, env, username, password)
         for (let i = 0, r = null; (r = products[i]); i++) {
             const a = {}
             // mapping entre les champs reçus et les noms des colonnes (propriété de l'article)
@@ -148,6 +148,7 @@ function errfn(e, fn) {
    if (e.message) x.apperror.d = e.message
    return x
 }
+
 /*****************************************************
  * RPC selon l'API de Odoo
  * Interface avec promise pour faciliter l'écriture de fonctions spécifiques
@@ -177,22 +178,22 @@ async function connection (args, env, username, password) {
 exports.connection = connection
 
 /******************************************************/
-function search_read (config, username, password, timeout, model, params) {
+function search_read (args, env, username, password) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.search_read(model, params, (err, res) => {
+                odoo.search_read(args.model, args.params, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'searh_read'))
                     } else {
@@ -206,22 +207,22 @@ function search_read (config, username, password, timeout, model, params) {
 exports.search_read = search_read
 
 /******************************************************/
-function get_by_ids (config, username, password, timeout, model, params) {
+function get_by_ids (args, env, username, password) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.get(model, params, (err, res) => {
+                odoo.get(args.model, args.params, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'get_by_ids'))
                     } else {
@@ -235,22 +236,22 @@ function get_by_ids (config, username, password, timeout, model, params) {
 exports.get_by_ids = get_by_ids
 
 /******************************************************/
-function browse_by_id (config, username, password, timeout, model, params) {
+function browse_by_id (args, env, username, passwords) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.browse_by_id(model, params, (err, res) => {
+                odoo.browse_by_id(args.model, args.params, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'browse_by_id'))
                     } else {
@@ -264,22 +265,22 @@ function browse_by_id (config, username, password, timeout, model, params) {
 exports.browse_by_id = browse_by_id
 
 /******************************************************/
-function create_object (config, username, password, timeout, model, params) {
+function create_object (args, env, username, password) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.create(model, params, (err, res) => {
+                odoo.create(args.model, args.params, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'create_object'))
                     } else {
@@ -293,22 +294,22 @@ function create_object (config, username, password, timeout, model, params) {
 exports.create_object = create_object
 
 /******************************************************/
-function update_object (config, username, password, timeout, model, id, params) {
+function update_object (args, env, username, password) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.update(model, id, params, (err, res) => {
+                odoo.update(args.model, args.id, args.params, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'update_object'))
                     } else {
@@ -322,22 +323,22 @@ function update_object (config, username, password, timeout, model, id, params) 
 exports.update_object = update_object
 
 /******************************************************/
-function delete_object (config, username, password, timeout, model, id) {
+function delete_object (args, env, username, password) {
     const odoo = new Odoo({
-        https: config.https || false,
-        host: config.host,
-        port: config.port,
-        database: config.database,
+        https: env.https || false,
+        host: env.host,
+        port: env.port,
+        database: env.database,
         username: username,
         password: password,
-        timeout: timeout || 5000
+        timeout: args.timeout || 5000
     })
     return new Promise((resolve, reject) => {
         odoo.connect(err => {
             if (err) {
                 reject(errconn(err))
             } else {
-                odoo.delete(model, id, (err, res) => {
+                odoo.delete(args.model, args.id, (err, res) => {
                     if (err) {
                         reject(errfn(err, 'delete_object'))
                     } else {

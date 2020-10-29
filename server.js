@@ -199,7 +199,11 @@ try {
     if (!cfg.proxyhttps)
         server = http.createServer(app).listen(port, () => {
             console.log("HTTP server running ")
-            atStart()
+            try {
+                atStart()
+            } catch (e) {
+                console.log("HTTP server atStart erreur : " + e.message)
+            }
         })
     else {
         // Création en https avec un certificat et sa clé de signature
@@ -207,7 +211,11 @@ try {
         const cert = fs.readFileSync("fullchain.pem")
         server = https.createServer({key:key, cert:cert}, app).listen(port, () => {
             console.log("HTTP/S server running ")
-            atStart()
+            try {
+                atStart()
+            } catch (e) {
+                console.log("HTTP server atStart erreur : " + e.message)
+            }
         });		
     }
     server.on('error', (e) => { // les erreurs de création du server ne sont pas des exceptions
