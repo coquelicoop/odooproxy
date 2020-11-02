@@ -1,6 +1,6 @@
 {
   "name": "proxyodoo",
-  "version": "0.0.1",
+  "version": "1.0.2",
   "dependencies": {
     "assert": "^2.0.0",
     "axios": "^0.20.0",
