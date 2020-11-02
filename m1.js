@@ -16,7 +16,11 @@ function atStart(cfg) {
 exports.atStart = atStart
 
 async function periodiqueAPeser(cfg, p) {
-    await articlesAPeser({ rechargt: true }, cfg.p, cfg.username, cfg.password)
+    try {
+        await articlesAPeser({ rechargt: true }, cfg.p, cfg.username, cfg.password)
+    } catch (e) {
+        console.log(e.message)
+    }
     setTimeout(() => { periodiqueAPeser(cfg, p) }, p * 60000)
 }
 
@@ -41,12 +45,12 @@ async function periodiqueAPeser(cfg, p) {
 /*
 URL de odoo retournant un "get"
 */
-async function get_url(args, env) {
+async function _get_url(args, env) {
     const u = (env.https ? 'https://' : 'http://') + env.host + ':' + env.port + args.url
     const r = await axios.get(u, { responseType: 'arraybuffer', timeout: args.timeout ? args.timeout : 10000 })
     return { bytes: r.data, type:args.type }
 }
-exports.get_url = get_url
+exports._get_url = _get_url
 
 /*
 URL de odoo retournant l'image d'un code barre depuis son texte

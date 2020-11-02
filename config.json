@@ -14,7 +14,7 @@
   "proxyport": 8095,
   "proxyhttps": false,
   "origins": [],
-  "periodeapeserenminutes": 60,
+  "periodeapeserenminutes": 0,
   "username": "dev@coquelicoop.fr",
   "password": "secret"  
 }

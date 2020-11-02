@@ -75,7 +75,7 @@ async function operation(req, res) {
         }
         // récupétration de la fonction de ce module traitant l'opération
         const f = req.params.func
-        const isGetF = f && f.startsWith('get_')
+        const isGetF = f && f.startsWith('_get_')
         const func = mod[f]
         if (!func) {
             setRes(res, 400).json(er(3))
