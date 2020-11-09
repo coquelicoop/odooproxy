@@ -143,6 +143,7 @@ function errconn(e) {
     const x = {apperror : {c: 10, m: 'Utilisateur non enregistré dans Odoo (ou serveur Odoo non joignable)' }}
     if (e.stack) x.apperror.s = e.stack
     if (e.message) x.apperror.d = e.message
+    if (e.data) x.apperror.d += JSON.stringify(e.data)
     return x
 }
 
@@ -150,6 +151,7 @@ function errfn(e, fn) {
    const x = {apperror : {c: 11, m: 'Erreur de ' + fn }}
    if (e.stack) x.apperror.s = e.stack
    if (e.message) x.apperror.d = e.message
+   if (e.data) x.apperror.d += JSON.stringify(e.data)
    return x
 }
 
